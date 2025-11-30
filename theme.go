@@ -13,7 +13,8 @@ type myTheme struct{}
 var _ fyne.Theme = (*myTheme)(nil)
 
 func (m *myTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
-	return theme.DefaultTheme().Color(name, variant)
+	// Force Light Theme
+	return theme.DefaultTheme().Color(name, theme.VariantLight)
 }
 
 func (m *myTheme) Font(style fyne.TextStyle) fyne.Resource {

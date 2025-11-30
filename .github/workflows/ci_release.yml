@@ -1,0 +1,65 @@
+name: CI/Release
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: flashcards-linux
+            asset_name: flashcards-linux
+          - os: windows-latest
+            artifact_name: flashcards-windows
+            asset_name: flashcards-windows.exe
+          - os: macos-latest
+            artifact_name: flashcards-macos
+            asset_name: flashcards-macos
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+
+      - name: Install Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev xorg-dev
+
+      - name: Build
+        run: |
+          mkdir -p dist
+          go build -o dist/${{ matrix.asset_name }} .
+          cp habatan.csv dist/
+          cp DroidSansFallbackFull.ttf dist/
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: nightly
+          name: Nightly Build
+          files: dist/*
+          draft: false
+          prerelease: true
+          overwrite: true

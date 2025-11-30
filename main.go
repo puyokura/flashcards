@@ -108,8 +108,9 @@ func main() {
 	)
 
 	// 2. カードエリア
-	cardBackground := canvas.NewRectangle(color.NRGBA{R: 40, G: 40, B: 40, A: 255})
-	cardBackground.CornerRadius = 16
+	// Dictionary Style: White background (handled by theme), Left alignment
+	cardBackground := canvas.NewRectangle(color.White)
+	cardBackground.CornerRadius = 4
 
 	idLabel = widget.NewLabel("No.1")
 	idLabel.Alignment = fyne.TextAlignCenter
@@ -122,15 +123,19 @@ func main() {
 	starButton.Importance = widget.LowImportance
 
 	wordLabel = widget.NewRichTextFromMarkdown("")
+	// Dictionary Style: Left alignment for the word
 	if len(wordLabel.Segments) > 0 {
 		if seg, ok := wordLabel.Segments[0].(*widget.TextSegment); ok {
-			seg.Style.Alignment = fyne.TextAlignCenter
+			seg.Style.Alignment = fyne.TextAlignLeading
 		}
 	}
 
 	posText = widget.NewRichTextFromMarkdown("")
+	posText.Wrapping = fyne.TextWrapWord
 	meaningText = widget.NewRichTextFromMarkdown("")
+	meaningText.Wrapping = fyne.TextWrapWord
 	exampleText = widget.NewRichTextFromMarkdown("")
+	exampleText.Wrapping = fyne.TextWrapWord
 
 	detailContent := container.NewVBox(
 		widget.NewSeparator(),
@@ -143,22 +148,34 @@ func main() {
 	detailContainer = container.NewPadded(detailContent)
 	detailContainer.Hide()
 
+	// Layout Refactoring:
+	// Top: (ID, Star) + Question Word
+	// Center: Answer/Explanation (Scrollable)
+
+	// Combine ID/Star (cardTop) and Word (wordLabel) into a single top container
+	// Remove spacers from wordArea to keep it compact
 	cardTop := container.NewBorder(nil, nil, nil, starButton, idLabel)
 
 	wordArea := container.NewVBox(
-		layout.NewSpacer(),
 		wordLabel,
-		layout.NewSpacer(),
+	)
+
+	topContent := container.NewVBox(
+		cardTop,
+		widget.NewSeparator(),
+		wordArea,
+		widget.NewSeparator(),
 	)
 
 	detailScroll := container.NewVScroll(detailContainer)
-	detailScroll.SetMinSize(fyne.NewSize(0, 150))
+	// Remove fixed min size for scroll area to allow it to expand/shrink
+	// detailScroll.SetMinSize(fyne.NewSize(0, 150))
 
 	cardInner := container.NewBorder(
-		cardTop,
-		detailScroll,
-		nil, nil,
-		wordArea,
+		topContent, // Top
+		nil,        // Bottom
+		nil, nil,   // Left, Right
+		detailScroll, // Center (takes remaining space)
 	)
 
 	cardStack := container.NewStack(
@@ -197,22 +214,28 @@ func main() {
 
 	myWindow.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
 		switch k.Name {
-		case fyne.KeySpace, fyne.KeyEnter, fyne.KeyDown:
+		// Next / Show Answer
+		case fyne.KeySpace, fyne.KeyEnter, fyne.KeyDown, fyne.KeyJ, fyne.KeyF:
 			if detailContainer.Hidden {
 				showAnswer()
 			} else {
 				moveIndex(1)
 			}
-		case fyne.KeyRight:
+		// Next (Force)
+		case fyne.KeyRight, fyne.KeyL:
 			moveIndex(1)
-		case fyne.KeyLeft:
+		// Previous
+		case fyne.KeyLeft, fyne.KeyUp, fyne.KeyH, fyne.KeyK, fyne.KeyA, fyne.KeyD:
 			moveIndex(-1)
+		// Bookmark
+		case fyne.KeyB, fyne.KeyS, fyne.KeyM:
+			toggleBookmark()
 		}
 	})
 
 	myWindow.SetContent(finalLayout)
-	myWindow.Resize(fyne.NewSize(450, 700))
-	myWindow.SetFixedSize(true) // サイズ変更を禁止
+	myWindow.Resize(fyne.NewSize(400, 600))
+	// myWindow.SetFixedSize(true) // Allow resizing
 	myWindow.ShowAndRun()
 }
 
@@ -318,16 +341,17 @@ func updateUI() {
 	idLabel.SetText(fmt.Sprintf("No. %s", entry.ID))
 
 	wordLabel.ParseMarkdown("# " + entry.Word)
-	// Markdownパースでスタイルがリセットされる可能性があるため、中央揃えを再適用
+	// Dictionary Style: Left alignment
 	if len(wordLabel.Segments) > 0 {
 		if seg, ok := wordLabel.Segments[0].(*widget.TextSegment); ok {
-			seg.Style.Alignment = fyne.TextAlignCenter
+			seg.Style.Alignment = fyne.TextAlignLeading
 		}
 	}
 	wordLabel.Refresh()
 
 	posStr := strings.ReplaceAll(entry.Pos, "\n", " ")
-	posText.ParseMarkdown(fmt.Sprintf("**%s**", posStr))
+	// Dictionary Style: Italic for POS
+	posText.ParseMarkdown(fmt.Sprintf("*%s*", posStr))
 
 	meanStr := strings.ReplaceAll(entry.Meaning, "\n", "\n")
 	meaningText.ParseMarkdown(meanStr)
