@@ -2,7 +2,7 @@ name: CI/Release
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   workflow_dispatch:
 
 permissions:
@@ -27,39 +27,49 @@ jobs:
             asset_name: flashcards-macos
 
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v4
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Install Dependencies (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgl1-mesa-dev xorg-dev
+
+    - name: Build
+      run: |
+        mkdir -p dist
+        go build -o dist/${{ matrix.asset_name }} .
+        cp habatan.csv dist/
+        cp DroidSansFallbackFull.ttf dist/
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact_name }}
+        path: dist/
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
         with:
-          go-version: "1.21"
+          path: artifacts
 
-      - name: Install Dependencies (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgl1-mesa-dev xorg-dev
-
-      - name: Build
-        run: |
-          mkdir -p dist
-          go build -o dist/${{ matrix.asset_name }} .
-          cp habatan.csv dist/
-          cp DroidSansFallbackFull.ttf dist/
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: dist/
-
-      - name: Release
+      - name: Create Release
         uses: softprops/action-gh-release@v1
-        if: github.ref == 'refs/heads/main'
         with:
           tag_name: nightly
           name: Nightly Build
-          files: dist/*
+          files: artifacts/**/*
           draft: false
           prerelease: true
           overwrite: true
