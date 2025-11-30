@@ -19,12 +19,15 @@ jobs:
           - os: ubuntu-latest
             artifact_name: flashcards-linux
             asset_name: flashcards-linux
+            zip_name: flashcards-linux.zip
           - os: windows-latest
             artifact_name: flashcards-windows
             asset_name: flashcards-windows.exe
+            zip_name: flashcards-windows.zip
           - os: macos-latest
             artifact_name: flashcards-macos
             asset_name: flashcards-macos
+            zip_name: flashcards-macos.zip
 
     steps:
     - uses: actions/checkout@v4
@@ -41,17 +44,29 @@ jobs:
         sudo apt-get install -y libgl1-mesa-dev xorg-dev
 
     - name: Build
+      shell: bash
       run: |
         mkdir -p dist
         go build -o dist/${{ matrix.asset_name }} .
         cp habatan.csv dist/
         cp DroidSansFallbackFull.ttf dist/
 
+    - name: Zip Artifacts (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        cd dist
+        zip -r ../${{ matrix.zip_name }} .
+
+    - name: Zip Artifacts (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        Compress-Archive -Path dist/* -DestinationPath ${{ matrix.zip_name }}
+
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.artifact_name }}
-        path: dist/
+        path: ${{ matrix.zip_name }}
 
   release:
     name: Create Release
@@ -69,7 +84,6 @@ jobs:
         with:
           tag_name: nightly
           name: Nightly Build
-          files: artifacts/**/*
+          files: artifacts/**/*.zip
           draft: false
           prerelease: true
-          overwrite: true
